@@ -6,8 +6,8 @@ use der::{
     Any, Decode, Encode,
 };
 use log::error;
-use pkcs12::{authenticated_safe::AuthenticatedSafe, cert_type::CertBag, safe_bag::SafeContents};
-use rsa::{pkcs8, pkcs8::EncryptedPrivateKeyInfo};
+use pkcs12::{safe_bag::SafeContents, AuthenticatedSafe, CertBag};
+use pkcs8::EncryptedPrivateKeyInfo;
 
 use crate::Error;
 
@@ -66,7 +66,7 @@ pub(crate) fn get_cert(content: &Any, password: &str) -> crate::Result<Vec<u8>> 
         }
     };
 
-    let params = pkcs8::pkcs5::pbes2::Parameters::from_der(&enc_params)?;
+    let params = pkcs5::pbes2::Parameters::from_der(&enc_params)?;
     if let Some(ciphertext_os) = enc_data.enc_content_info.encrypted_content {
         let mut ciphertext = ciphertext_os.as_bytes().to_vec();
         let scheme = pkcs5::EncryptionScheme::from(params.clone());

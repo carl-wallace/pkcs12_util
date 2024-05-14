@@ -1,8 +1,9 @@
 //! Structure to help with generating PKCS #12 objects
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
+use pkcs8::EncryptedPrivateKeyInfo;
 use rand_core::CryptoRngCore;
-use rsa::pkcs8::{spki::AlgorithmIdentifier, EncryptedPrivateKeyInfo};
+use rsa::pkcs8::spki::AlgorithmIdentifier;
 use sha2::{Sha256, Sha384, Sha512};
 
 use cms::{
@@ -23,18 +24,17 @@ use der::{
 };
 use hmac::digest::crypto_common;
 use pkcs12::{
-    cert_type::CertBag,
-    digest_info::DigestInfo,
     kdf::{derive_key_utf8, Pkcs12KeyType},
-    mac_data::MacData,
     pfx::{Pfx, Version},
     safe_bag::SafeBag,
-    PKCS_12_CERT_BAG_OID, PKCS_12_PKCS8_KEY_BAG_OID, PKCS_12_X509_CERT_OID,
+    CertBag, DigestInfo, MacData, PKCS_12_CERT_BAG_OID, PKCS_12_PKCS8_KEY_BAG_OID,
+    PKCS_12_X509_CERT_OID,
 };
 use pkcs5::{
     pbes2,
-    pbes2::{Kdf, Pbkdf2Params, Pbkdf2Prf, AES_256_CBC_OID, PBES2_OID},
+    pbes2::{Kdf, Pbkdf2Params, Pbkdf2Prf, Salt, AES_256_CBC_OID, PBES2_OID},
 };
+use rsa::pkcs8;
 use x509_cert::{attr::Attribute, spki::AlgorithmIdentifierOwned, Certificate};
 
 /// Error type
@@ -372,7 +372,7 @@ impl Pkcs12Builder {
         rng.fill_bytes(salt.as_mut_slice());
 
         let cert_kdf_params = Pbkdf2Params {
-            salt: &salt,
+            salt: Salt::new(salt)?,
             iteration_count: 2048,
             key_length: None,
             prf: Pbkdf2Prf::HmacWithSha256,
@@ -418,7 +418,7 @@ impl Pkcs12Builder {
             rng.fill_bytes(salt.as_mut_slice());
 
             let cert_kdf_params = Pbkdf2Params {
-                salt: &salt,
+                salt: Salt::new(&salt)?,
                 iteration_count: 2048,
                 key_length: None,
                 prf,
@@ -448,7 +448,7 @@ impl Pkcs12Builder {
             rng.fill_bytes(salt.as_mut_slice());
 
             let cert_kdf_params = Pbkdf2Params {
-                salt: &salt,
+                salt: Salt::new(&salt)?,
                 iteration_count: 2048,
                 key_length: None,
                 prf,
@@ -899,7 +899,7 @@ fn p12_builder_test() {
     p12_builder.cert_attributes(Some(cert_attrs));
 
     let cert_kdf_params = Pbkdf2Params {
-        salt: &hex!("9A A2 77 B5 F0 51 B4 50"),
+        salt: Salt::new(&hex!("9A A2 77 B5 F0 51 B4 50")).unwrap(),
         iteration_count: 2048,
         key_length: None,
         prf: Pbkdf2Prf::HmacWithSha256,
@@ -928,7 +928,7 @@ fn p12_builder_test() {
     p12_builder.key_attributes(Some(key_attrs));
 
     let key_kdf_params = Pbkdf2Params {
-        salt: &hex!("10 AF 41 1E 77 84 BA CD"),
+        salt: Salt::new(&hex!("10 AF 41 1E 77 84 BA CD")).unwrap(),
         iteration_count: 2048,
         key_length: None,
         prf: Pbkdf2Prf::HmacWithSha256,
